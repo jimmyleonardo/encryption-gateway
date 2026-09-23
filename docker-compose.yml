@@ -1,0 +1,27 @@
+services:
+  gateway:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - gateway-keys:/app/keys
+
+  # Optional mock upstream for local testing (run: docker compose --profile demo up)
+  mock-upstream:
+    profiles: ["demo"]
+    image: node:24-alpine
+    working_dir: /app
+    command: node mock-upstream.js
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./mock-upstream.js:/app/mock-upstream.js:ro
+
+volumes:
+  gateway-keys:

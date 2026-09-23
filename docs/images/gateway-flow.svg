@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1020" viewBox="0 0 1280 1020" role="img" aria-labelledby="title desc">
+  <title id="title">Encryption Gateway: Request always encrypted, response mode selectable</title>
+  <desc id="desc">Requests flow from client through hybrid encryption to the gateway which decrypts and forwards to the backend via HTTPS. Under ENCRYPT_RESPONSE=true, backend responses are encrypted by the gateway and decrypted by the client SDK. Under false mode, the gateway forwards standard JSON without decryption. Both network hops use HTTPS. The backend enforces authentication and business logic; the gateway is completely stateless.</desc>
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #172b4d; }
+      .heading { font-size: 28px; font-weight: 700; }
+      .card-title { font-size: 23px; font-weight: 700; }
+      .body { font-size: 19px; }
+      .small { font-size: 17px; fill: #475569; }
+      .label { font-size: 17px; font-weight: 700; }
+      .code { font-family: 'Courier New', monospace; font-size: 21px; font-weight: 700; }
+      .center { text-anchor: middle; }
+    </style>
+  </defs>
+  <rect width="1280" height="1020" rx="24" fill="#f1f5f9"/>
+  <text x="40" y="52" font-size="34" font-weight="700">One Gateway. Two Response Modes.</text>
+  <text x="40" y="86" class="body">Android example shown — identical architecture applies to iOS, Flutter, and Web.</text>
+
+  <!-- Shared request path: left to right -->
+  <rect x="24" y="114" width="1232" height="250" rx="20" fill="#ffffff" stroke="#cbd5e1"/>
+  <rect x="24" y="134" width="5" height="42" rx="2" fill="#2563eb"/>
+  <text x="48" y="153" class="heading">REQUEST</text>
+  <text x="228" y="151" class="body">Always encrypted across both modes</text>
+  <rect x="48" y="192" width="260" height="120" rx="14" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="178" y="227" class="card-title center">Client App / SDK</text>
+  <text x="178" y="258" class="body center">Construct payload</text>
+  <text x="178" y="286" class="body center" font-weight="700">ENCRYPT</text>
+  <rect x="510" y="192" width="260" height="120" rx="14" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="640" y="227" class="card-title center">Encryption Gateway</text>
+  <text x="640" y="258" class="body center" font-weight="700">DECRYPT</text>
+  <text x="640" y="286" class="body center">Validate &amp; forward</text>
+  <rect x="972" y="192" width="260" height="120" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="1102" y="227" class="card-title center">Backend API</text>
+  <text x="1102" y="258" class="body center">Receive plain request</text>
+  <text x="1102" y="286" class="body center">Process business logic</text>
+  <path d="M 320 250 H 495" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <path d="M 495 250 L 483 243 L 483 257 Z" fill="#2563eb"/>
+  <text x="409" y="224" class="label center" fill="#1d4ed8">Encrypted payload</text>
+  <text x="409" y="279" class="small center">HTTPS</text>
+  <path d="M 784 250 H 957" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <path d="M 957 250 L 945 243 L 945 257 Z" fill="#2563eb"/>
+  <text x="871" y="224" class="label center">Standard request</text>
+  <text x="871" y="279" class="small center">HTTPS</text>
+  <text x="48" y="341" class="small">AES-256-GCM for payload; RSA-OAEP-SHA256 encapsulates the ephemeral session AES key.</text>
+
+  <!-- Encrypted response: right to left -->
+  <rect x="24" y="384" width="1232" height="250" rx="20" fill="#ffffff" stroke="#a7d9c5"/>
+  <rect x="24" y="404" width="5" height="42" rx="2" fill="#047857"/>
+  <text x="48" y="423" class="heading">RESPONSE</text>
+  <text x="236" y="421" class="code">ENCRYPT_RESPONSE=true</text>
+  <rect x="544" y="398" width="112" height="33" rx="16" fill="#d1fae5"/>
+  <text x="600" y="420" class="label center" fill="#065f46">DEFAULT</text>
+  <rect x="48" y="462" width="260" height="120" rx="14" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="178" y="497" class="card-title center">Client App / SDK</text>
+  <text x="178" y="528" class="body center" font-weight="700">DECRYPT</text>
+  <text x="178" y="556" class="body center">App reads decrypted data</text>
+  <rect x="510" y="462" width="260" height="120" rx="14" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="640" y="497" class="card-title center">Encryption Gateway</text>
+  <text x="640" y="528" class="body center" font-weight="700">ENCRYPT</text>
+  <text x="640" y="556" class="body center">Same AES key, fresh IV</text>
+  <rect x="972" y="462" width="260" height="120" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="1102" y="497" class="card-title center">Backend API</text>
+  <text x="1102" y="528" class="body center">Send plain response</text>
+  <text x="1102" y="556" class="body center">Status, headers, data</text>
+  <path d="M 495 520 H 320" fill="none" stroke="#047857" stroke-width="3"/>
+  <path d="M 320 520 L 332 513 L 332 527 Z" fill="#047857"/>
+  <text x="409" y="494" class="label center">Encrypted payload</text>
+  <text x="409" y="549" class="small center">HTTPS</text>
+  <path d="M 957 520 H 784" fill="none" stroke="#047857" stroke-width="3"/>
+  <path d="M 784 520 L 796 513 L 796 527 Z" fill="#047857"/>
+  <text x="871" y="494" class="label center">Plain response</text>
+  <text x="871" y="549" class="small center">HTTPS</text>
+  <text x="48" y="611" class="small">SDK inspects Encrypted: true and decrypts automatically. UI code requires zero crypto boilerplate.</text>
+
+  <!-- Plain response: right to left -->
+  <rect x="24" y="654" width="1232" height="250" rx="20" fill="#ffffff" stroke="#f3d39b"/>
+  <rect x="24" y="674" width="5" height="42" rx="2" fill="#b45309"/>
+  <text x="48" y="693" class="heading">RESPONSE</text>
+  <text x="236" y="691" class="code">ENCRYPT_RESPONSE=false</text>
+  <rect x="48" y="732" width="260" height="120" rx="14" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="178" y="767" class="card-title center">Client App / SDK</text>
+  <text x="178" y="798" class="body center" font-weight="700">READ JSON</text>
+  <text x="178" y="826" class="body center">Direct payload parsing</text>
+  <rect x="510" y="732" width="260" height="120" rx="14" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="640" y="767" class="card-title center">Encryption Gateway</text>
+  <text x="640" y="798" class="body center" font-weight="700">FORWARD RESULT</text>
+  <text x="640" y="826" class="body center">Transparent proxying</text>
+  <rect x="972" y="732" width="260" height="120" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="1102" y="767" class="card-title center">Backend API</text>
+  <text x="1102" y="798" class="body center">Send plain response</text>
+  <text x="1102" y="826" class="body center">Status, headers, data</text>
+  <path d="M 495 790 H 320" fill="none" stroke="#b45309" stroke-width="3"/>
+  <path d="M 320 790 L 332 783 L 332 797 Z" fill="#b45309"/>
+  <text x="409" y="764" class="label center">Standard JSON</text>
+  <text x="409" y="819" class="small center">HTTPS</text>
+  <path d="M 957 790 H 784" fill="none" stroke="#b45309" stroke-width="3"/>
+  <path d="M 784 790 L 796 783 L 796 797 Z" fill="#b45309"/>
+  <text x="871" y="764" class="label center">Plain response</text>
+  <text x="871" y="819" class="small center">HTTPS</text>
+  <text x="48" y="881" class="small">SDK inspects Encrypted: false. Client explicitly permits this via requireEncryptedResponse=false.</text>
+
+  <text x="40" y="944" class="body" font-weight="700">SDK result structure is identical: StatusCode + Headers + Data</text>
+  <text x="40" y="975" class="small">Both hops use HTTPS in production. Backend handles authentication &amp; business logic; gateway is stateless.</text>
+</svg>
