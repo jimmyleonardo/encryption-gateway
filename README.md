@@ -1434,7 +1434,7 @@ Unit tests cover crypto, payload limits, key-generation policy, route checks, co
 | Environment variables and key management | [Configuration](docs/configuration.md) |
 | Threat model and limitations | [Security](docs/security.md) |
 | Hosted demo and direct-versus-gateway comparison | [Live demo](docs/live-demo.md) |
-| Quick-start guide | [Panduan](docs/PANDUAN.md) |
+| Quick-start guide | [Tutorial](docs/tutorial.md) |
 | Architecture diagram | [Gateway flow](docs/images/gateway-flow.svg) |
 
 ## License
