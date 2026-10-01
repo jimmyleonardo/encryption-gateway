@@ -1,8 +1,13 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
 *.log
 /keys/
+/keys-*/
+**/private.pem
+*.private.pem
 *.tsbuildinfo
 
 /src/config/keys/

@@ -144,6 +144,35 @@ curl -fsS https://gateway.example.com/public-key > gateway-public-key.json
 
 This JSON contains `pem` for Web/Android/Flutter, `pkcs1Base64` for iOS, and `keyId` for every SDK. Embed the public key in the client build. Store the **private** key only on the gateway. The demo client fetches the public key at runtime for local testing.
 
+### Which keys must users replace?
+
+Every deployment should generate its own RSA key pair. This repository includes **no deployment private key**, and the Flutter sample's `assets/gateway_public.pem` is an explicit placeholder. Do not use the public demo deployment's key for your own server.
+
+| Value | Where it belongs | What the user configures |
+| --- | --- | --- |
+| RSA private key | Gateway server secret or protected key file | Generate a dedicated key; configure `RSA_PRIVATE_KEY` or `RSA_PRIVATE_KEY_PATH` |
+| RSA public key | Client application resource | Copy the matching PEM; for iOS use `pkcs1Base64` from `/public-key` |
+| `keyId` | Client configuration | Use the ID returned by the same gateway's `/public-key` endpoint |
+| Gateway URL / backend origin | Client configuration and gateway allow-list | Replace example hosts with your deployment and backend |
+
+Generate outside the repository:
+
+```bash
+npm run keygen -- --out ~/gateway-keys
+```
+
+Keep `~/gateway-keys/private.pem` only in server storage, mounted secrets, or your hosting platform's secret manager. Never copy it into Android, iOS, Flutter, Web, README examples, or inspector logs. The keygen command prints the private key's base64 representation for server setup; keep that output private too. Production requires an existing/configured key by default. See [key provisioning and rotation](docs/configuration.md#key-management).
+
+The public key may be bundled or published; its authenticity matters. Obtain it from your trusted gateway over HTTPS and verify the fingerprint through your deployment configuration. A public key alone cannot decrypt these RSA-protected AES keys. Inspection helpers use the SDK's temporary per-request AES key internally to decode responses; they do not need the gateway private key.
+
+For the Flutter sample, replace the placeholder with **only the public PEM**:
+
+```bash
+cp ~/gateway-keys/public.pem clients/flutter/example/assets/gateway_public.pem
+```
+
+If the gateway lives on another machine, use its matching `/public-key` output instead of generating an unrelated local pair. Changing only the app's public key will break decryption unless the corresponding private key is configured on that gateway.
+
 ### 2. Copy the SDK helper
 
 | Platform | File to copy | Requirements |
@@ -249,6 +278,52 @@ final result = await gateway.send(
 );
 // Inspect result.statusCode and use result.data.
 ```
+
+### Inspect plain requests and decrypted responses
+
+Putting an inspector on the actual gateway transport displays the encrypted envelope. Use the logical client/helper below so capture happens **before request encryption and after response decryption**. The server can keep `ENCRYPT_RESPONSE=true`; Aegis Guardian is not required.
+
+| Platform / inspector | Integration | Usage and sample |
+| --- | --- | --- |
+| Android / Chucker | Chucker before the final gateway application interceptor | [Complete OkHttp/Retrofit sample](docs/chucker.md) |
+| iOS / Pulse | URLRequest adapter + manual Pulse recorder | [SwiftUI/UIKit console setup](docs/pulse.md) |
+| Flutter / Samseer | `GatewaySamseerClient` records request and decoded result | [Guide](docs/samseer.md), [sample app](clients/flutter/example) |
+| Flutter / Alice | `GatewayAliceClient` adds completed readable transactions | [Guide](docs/alice.md), same sample app with `INSPECTOR=alice` |
+
+Other inspectors need an equivalent manual recorder or a client adapter that restores the backend response before the inspector sees it. Installing their interceptor only on the encrypted transport does not expose the plain body automatically.
+
+These entries show the **logical backend transaction**: backend URL/method, application headers, request body, backend status, and decoded body. Enable plaintext inspectors in debug builds. Configure keys as described above; none of these integrations require a private key in the app.
+
+### See plain requests and responses in Chucker
+
+Android OkHttp/Retrofit apps can use [GatewayOkHttpInterceptor.kt](clients/android/GatewayOkHttpInterceptor.kt) alongside the SDK. Register application headers, then Chucker, then the gateway adapter as the last application interceptor. The adapter encrypts the outgoing request and restores the decrypted backend response before Chucker records it. Chucker shows the backend URL, method, plain JSON bodies, and backend status even with `ENCRYPT_RESPONSE=true`. Use a separate network transport for the gateway. [Complete Chucker integration guide](docs/chucker.md).
+
+### See plain requests and responses in Pulse on iOS
+
+iOS apps can use [GatewayHTTPClient.swift](clients/ios/GatewayHTTPClient.swift) and the debug-only [GatewayPulseRecorder.swift](clients/ios/GatewayPulseRecorder.swift). The adapter accepts an ordinary backend `URLRequest`, sends it through the encryption server, and records its plain body and decrypted response in Pulse. Open `PulseUI.ConsoleView` from your debug menu to inspect completed transactions. [Complete Pulse integration guide](docs/pulse.md).
+
+### See plain requests and responses in Samseer on Flutter
+
+Flutter apps can use [gateway_samseer_client.dart](clients/flutter/gateway_samseer_client.dart) around the existing SDK. It records the plain request before encryption and the decoded response with the backend status afterward. A [sample app](clients/flutter/example) includes login, product-list, and profile-validation actions plus an inspector button. [Complete Samseer integration guide](docs/samseer.md).
+
+### See plain requests and responses in Alice on Flutter
+
+Use [gateway_alice_client.dart](clients/flutter/gateway_alice_client.dart) instead of the Samseer wrapper. It records the original request and decoded response in Alice using the backend status. The sample supports both inspectors; choose one per run:
+
+```bash
+cd clients/flutter/example
+sh prepare.sh
+flutter create --platforms=android,ios --project-name=gateway_inspector_sample --no-overwrite --no-pub .
+flutter pub get
+# Replace assets/gateway_public.pem with your deployment's public key first.
+flutter run \
+  --dart-define=INSPECTOR=alice \
+  --dart-define=GATEWAY_URL=https://gateway.example.com/api/gateway \
+  --dart-define=BACKEND_ORIGIN=https://api.example.com \
+  --dart-define=GATEWAY_KEY_ID=YOUR_KEY_ID
+```
+
+Use `INSPECTOR=samseer` for Samseer (the default). The sample pins Alice 1.2.0 and Samseer 0.5.0; see the [Alice compatibility notes and integration steps](docs/alice.md). Configure real URLs, matching public key/key ID, and backend routes before sending requests. The inspector buttons are available only in debug builds.
 
 ### 4. Handle backend status and gateway errors
 

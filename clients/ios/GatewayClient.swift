@@ -18,12 +18,14 @@ final class GatewayClient {
     private let keyId: String?
     private let requireEncryptedResponse: Bool
     private let serverKey: SecKey
+    private let transportSession: URLSession
 
     /// - Parameters:
     ///   - gatewayURL: URL to gateway, e.g. URL(string: "https://gateway.example.com/api/gateway")!
     ///   - serverPublicKeyBase64: `pkcs1Base64` from GET /public-key or keygen output
     ///   - keyId: `keyId` from GET /public-key (optional)
-    init(gatewayURL: URL, serverPublicKeyBase64: String, keyId: String? = nil, requireEncryptedResponse: Bool = true) throws {
+    init(gatewayURL: URL, serverPublicKeyBase64: String, keyId: String? = nil, requireEncryptedResponse: Bool = true, transportSession: URLSession = .shared) throws {
+        self.transportSession = transportSession
         self.requireEncryptedResponse = requireEncryptedResponse
         self.gatewayURL = gatewayURL
         self.keyId = keyId
@@ -81,7 +83,7 @@ final class GatewayClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: reqObj)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await transportSession.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         guard status == 200 else {

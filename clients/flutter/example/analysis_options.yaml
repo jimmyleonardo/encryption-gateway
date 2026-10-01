@@ -1,0 +1,4 @@
+analyzer:
+  exclude:
+    # Flutter create generates a starter counter test for a different app.
+    - test/widget_test.dart

@@ -7,6 +7,30 @@ on:
     branches: [ main ]
 
 jobs:
+  flutter-sample:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Prepare sample helper files
+        working-directory: clients/flutter/example
+        run: sh prepare.sh
+      - name: Install Flutter sample dependencies
+        working-directory: clients/flutter/example
+        run: flutter pub get
+      - name: Analyze Flutter sample
+        working-directory: clients/flutter/example
+        run: flutter analyze lib test/gateway_samseer_test.dart
+      - name: Test plaintext inspector integration
+        working-directory: clients/flutter/example
+        run: flutter test test/gateway_samseer_test.dart
+      - name: Test Alice sample selection
+        working-directory: clients/flutter/example
+        run: flutter test test/gateway_samseer_test.dart --dart-define=INSPECTOR=alice --plain-name "sample opens with setup instructions and three request buttons"
+
   test:
     runs-on: ubuntu-latest
     strategy:
