@@ -18,6 +18,10 @@ ALLOWED_ROUTES=POST api.example.com/api/login, GET api.example.com/api/profile
 ALLOW_HTTP_UPSTREAM=false
 ENCRYPT_RESPONSE=true
 
+# Explicit first-start generation, ONLY with the persistent gateway-keys volume.
+# Alternatively provide RSA_PRIVATE_KEY or an existing private key file.
+AUTO_GENERATE_KEYS=true
+
 # For a single trusted reverse proxy in front of the gateway,
 # with the gateway port inaccessible directly from the public internet.
 TRUST_PROXY=1
@@ -33,7 +37,7 @@ curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3000/public-key
 ```
 
-If no keys exist, the gateway automatically generates an RSA-2048 key pair inside the named volume `gateway-keys`. This directory is owned by the container's non-root user (UID 1000). Host ports are bound exclusively to **`127.0.0.1:3000`**; all external incoming traffic must traverse an HTTPS reverse proxy.
+If no keys exist and `AUTO_GENERATE_KEYS=true` is explicitly configured, the gateway generates an RSA-2048 key pair inside the named volume `gateway-keys`. This directory is owned by the container's non-root user (UID 1000). Host ports are bound exclusively to **`127.0.0.1:3000`**; all external incoming traffic must traverse an HTTPS reverse proxy.
 
 No database or cache services are required. Ensure target lists are configured: if both `ALLOWED_ROUTES` and `ALLOWED_TARGET_HOSTS` are empty, all upstream requests will be rejected.
 

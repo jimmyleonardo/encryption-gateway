@@ -46,6 +46,7 @@ export function parsePayload(value: unknown): DecryptedPayload {
             `Header[${index}] must have a string Key and scalar Value`,
           );
         }
+        validateHeaderEntry(entry.Key, entry.Value, fail, `Header[${index}]`);
       } else {
         validateHeaderMap(entry, fail, `Header[${index}]`);
       }
@@ -63,7 +64,7 @@ export function parsePayload(value: unknown): DecryptedPayload {
   if (typeof p.Parameter === 'object' && p.Parameter !== null) {
     validateParameters(p.Parameter as Record<string, unknown>, fail);
   }
-  if (p.Body !== undefined) validateJsonDepth(p.Body, fail, 0);
+  if (p.Body !== undefined) normalizeRequestBody(p.Body);
 
   return p as unknown as DecryptedPayload;
 }
@@ -91,6 +92,41 @@ export function validateParameterObject(
   validateParameters(value, fail);
 }
 
+/** Decode legacy JSON strings, then apply the same limits as JSON values. */
+export function normalizeRequestBody(body: unknown): unknown {
+  let normalized = body;
+  if (typeof body === 'string') {
+    try {
+      normalized = JSON.parse(body) as unknown;
+    } catch {
+      // Non-JSON strings are supported as raw upstream bodies.
+    }
+  }
+  validateJsonDepth(
+    normalized,
+    (reason) => new BadRequestException(`Invalid payload: ${reason}`),
+    0,
+  );
+  return normalized;
+}
+
+function validateHeaderEntry(
+  name: string,
+  item: unknown,
+  fail: Fail,
+  label: string,
+): void {
+  if (
+    name.length > 256 ||
+    !isHeaderScalar(item) ||
+    String(item).length > 8192
+  ) {
+    throw fail(
+      `${label} entries must have names up to 256 characters and scalar values up to 8192 characters`,
+    );
+  }
+}
+
 function validateHeaderMap(
   value: Record<string, unknown>,
   fail: Fail,
@@ -100,15 +136,7 @@ function validateHeaderMap(
   if (entries.length > 100)
     throw fail(`${label} must contain at most 100 entries`);
   for (const [name, item] of entries) {
-    if (
-      name.length > 256 ||
-      !isHeaderScalar(item) ||
-      String(item).length > 8192
-    ) {
-      throw fail(
-        `${label} entries must have names up to 256 characters and scalar values up to 8192 characters`,
-      );
-    }
+    validateHeaderEntry(name, item, fail, label);
   }
 }
 

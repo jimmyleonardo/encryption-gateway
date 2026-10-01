@@ -37,6 +37,8 @@ if (result.statusCode == 200) {
 }
 ```
 
+Android response headers use `Map<String, List<String>>`, preserving repeated values such as `Set-Cookie`. Read a single value with `result.headers["content-type"]?.firstOrNull()` and all cookies with `result.headers["set-cookie"].orEmpty()`. When updating an older copy of this helper, migrate code that previously expected header values to be strings.
+
 ## 🍏 iOS (Swift)
 
 ```swift
@@ -44,11 +46,11 @@ let gateway = try GatewayClient(
     gatewayURL: URL(string: "https://gateway.example.com/api/gateway")!,
     serverPublicKeyBase64: publicKeyPKCS1Base64,
     keyId: "KEY_ID_FROM_SERVER",
-    requireEncryptedResponse = true // false: allows both response formats
+    requireEncryptedResponse: true // false: allows both response formats
 )
 
 let result = try await gateway.send(
-    method = "GET",
+    method: "GET",
     accessPoint: "https://api.example.com/api/profile",
     headers: ["Authorization": "Bearer \(token)"]
 )

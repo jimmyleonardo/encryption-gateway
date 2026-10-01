@@ -27,7 +27,7 @@ import javax.crypto.spec.SecretKeySpec
 
 data class GatewayResult(
     val statusCode: Int,
-    val headers: Map<String, String>,
+    val headers: Map<String, List<String>>,
     val data: Any?
 )
 
@@ -122,11 +122,19 @@ class GatewayClient(
                 throw GatewayException(200, "INVALID_RESPONSE", "Invalid gateway response")
             }
 
-            val responseHeaders = mutableMapOf<String, String>()
+            val responseHeaders = mutableMapOf<String, List<String>>()
             val rawHeaders = result.optJSONObject("Headers")
             if (rawHeaders != null) {
                 for (k in rawHeaders.keys()) {
-                    responseHeaders[k] = rawHeaders.getString(k)
+                    val value = rawHeaders.get(k)
+                    responseHeaders[k] = when (value) {
+                        is String -> listOf(value)
+                        is JSONArray -> (0 until value.length()).map { index ->
+                            value.get(index) as? String
+                                ?: throw GatewayException(200, "INVALID_RESPONSE", "Invalid gateway header")
+                        }
+                        else -> throw GatewayException(200, "INVALID_RESPONSE", "Invalid gateway header")
+                    }
                 }
             }
 

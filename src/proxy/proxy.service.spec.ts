@@ -168,6 +168,19 @@ describe('ProxyService', () => {
     expect(sentConfig().data).toEqual({ ids: [1, 2] });
   });
 
+  it('rejects deeply nested legacy JSON bodies before contacting upstream', async () => {
+    let body: unknown = 1;
+    for (let i = 0; i < 33; i++) body = { child: body };
+    await expect(
+      service().forward({
+        AccessPoint: 'https://api.example.com/items',
+        Method: 'POST',
+        Body: JSON.stringify(body),
+      }),
+    ).rejects.toThrow(/32 levels/);
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it('drops forged proxy identity and Connection-nominated headers in any order', async () => {
     await service().forward({
       AccessPoint: 'https://api.example.com/',

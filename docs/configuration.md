@@ -10,7 +10,7 @@ The following defaults are compiled fallbacks. `.env.example` overrides several 
 | `ENCRYPT_RESPONSE` | `true` | `true`: encrypt response; `false`: standard JSON |
 | `RSA_PRIVATE_KEY` | Empty | PEM or base64-encoded PEM; multiple keys comma-separated |
 | `RSA_PRIVATE_KEY_PATH` | Empty | Path to private key file; multiple paths comma-separated |
-| `AUTO_GENERATE_KEYS` | Active outside tests | Set `false` to reject startup if no key exists |
+| `AUTO_GENERATE_KEYS` | `false` in production/tests; `true` otherwise | Explicit `true` permits generating a missing key; `false` requires an existing key |
 | `ALLOWED_ROUTES` | Empty | `[METHOD] host/path`, comma-separated; wildcards allowed at path end only |
 | `ALLOWED_TARGET_HOSTS` | Empty | Authorizes all paths and methods for specified hosts |
 | `ALLOW_HTTP_UPSTREAM` | `false` | HTTP upstream permitted strictly for local dev when `true` |
@@ -38,6 +38,8 @@ npm run keygen
 Generates `keys/private.pem` and `keys/public.pem`, then prints `KeyId` alongside formatted strings for client SDKs. Output includes the base64-encoded private key for server environments; never share full output or commit it to public logs.
 
 Key source resolution order: `RSA_PRIVATE_KEY` → `RSA_PRIVATE_KEY_PATH` → `keys/private.pem` → automatic generation if permitted. The private key must never be committed to Git or embedded in client apps.
+
+Production (`NODE_ENV=production`) fails startup when no key exists. Prefer provisioning `RSA_PRIVATE_KEY` or a key file before deploying. For a Docker deployment with the persistent `gateway-keys` volume, you may explicitly set `AUTO_GENERATE_KEYS=true` to generate the first key. Existing persisted keys continue to load even with `AUTO_GENERATE_KEYS=false`. Empty values use the environment-dependent default; only exact `true`/`false` overrides are accepted. Never enable generation on ephemeral or read-only hosting.
 
 Planned zero-downtime key rotation:
 

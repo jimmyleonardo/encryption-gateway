@@ -12,6 +12,7 @@ import { RsaUtil } from './rsa.util.js';
 import { AesUtil } from './aes.util.js';
 import { DecryptedPayload, parsePayload } from '../common/payload.js';
 import { GatewayRequestDto } from '../common/dto/gateway-request.dto.js';
+import { strictBoolean } from '../common/config.js';
 
 /** Gateway response: encrypted with the client's own AES key. */
 export interface GatewayResponse {
@@ -60,8 +61,17 @@ export class EncryptionService implements OnModuleInit {
   private readonly logger = new Logger(EncryptionService.name);
   /** Primary (newest) key first; older keys stay accepted for rotation. */
   private keys: ServerKey[] = [];
+  private readonly autoGenerateKeys: boolean;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {
+    const environment =
+      configService.get<string>('NODE_ENV') ?? process.env.NODE_ENV;
+    this.autoGenerateKeys = strictBoolean(
+      configService,
+      'AUTO_GENERATE_KEYS',
+      environment !== 'production' && environment !== 'test',
+    );
+  }
 
   onModuleInit() {
     this.keys = this.loadPrivateKeys().map((k) => this.describeKey(k));
@@ -176,7 +186,7 @@ export class EncryptionService implements OnModuleInit {
    *   - RSA_PRIVATE_KEY: base64 string or raw PEM
    *   - RSA_PRIVATE_KEY_PATH: file path(s)
    *   - keys/private.pem (auto-discovered)
-   *   - Auto-generates keys if none found and not in test environment!
+   *   - Auto-generates missing keys in development, or with an explicit opt-in.
    */
   private loadPrivateKeys(): { key: crypto.KeyObject; source: string }[] {
     const inline = this.configService.get<string>('RSA_PRIVATE_KEY')?.trim();
@@ -223,10 +233,7 @@ export class EncryptionService implements OnModuleInit {
             source: 'keys/private.pem',
           },
         ];
-      } else if (
-        process.env.NODE_ENV !== 'test' &&
-        this.configService.get<string>('AUTO_GENERATE_KEYS') !== 'false'
-      ) {
+      } else if (this.autoGenerateKeys) {
         // Auto-generate key pair on first start!
         this.logger.warn(
           'No RSA key found in environment or keys/ directory. Generating a fresh RSA-2048 key pair automatically...',
@@ -262,7 +269,8 @@ export class EncryptionService implements OnModuleInit {
     if (pems.length === 0) {
       throw new Error(
         'No server key configured. Set RSA_PRIVATE_KEY (base64 PEM) or ' +
-          'RSA_PRIVATE_KEY_PATH. Generate one with `npm run keygen`.',
+          'RSA_PRIVATE_KEY_PATH. Generate one with `npm run keygen`. ' +
+          'Automatic generation requires AUTO_GENERATE_KEYS=true in production.',
       );
     }
 

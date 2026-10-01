@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { tmpdir } from 'node:os';
+import { jest } from '@jest/globals';
 import { AesUtil } from './aes.util.js';
 import { EncryptionService, keyIdOf } from './encryption.service.js';
 
@@ -87,6 +88,85 @@ describe('EncryptionService', () => {
         .toString();
       expect(() => makeService({ RSA_PRIVATE_KEY: small })).toThrow(
         />= 2048 bits/,
+      );
+    });
+
+    describe('automatic generation policy', () => {
+      let workingDir: string;
+
+      beforeEach(() => {
+        workingDir = fs.mkdtempSync(path.join(keysDir, 'generation-'));
+        jest.spyOn(process, 'cwd').mockReturnValue(workingDir);
+      });
+
+      afterEach(() => jest.restoreAllMocks());
+
+      it.each(['production', 'test'])(
+        'requires a key by default in %s',
+        (NODE_ENV) => {
+          expect(() =>
+            makeService({ NODE_ENV, RSA_PRIVATE_KEY_PATH: '' }),
+          ).toThrow(/No server key configured/);
+          expect(fs.existsSync(path.join(workingDir, 'keys'))).toBe(false);
+        },
+      );
+
+      it.each(['', ' ', 'false'])(
+        'does not implicitly opt production into generation: %p',
+        (AUTO_GENERATE_KEYS) => {
+          expect(() =>
+            makeService({
+              NODE_ENV: 'production',
+              AUTO_GENERATE_KEYS,
+              RSA_PRIVATE_KEY_PATH: '',
+            }),
+          ).toThrow(/AUTO_GENERATE_KEYS=true/);
+        },
+      );
+
+      it('allows explicit production generation and reuses the persisted key', () => {
+        const env = {
+          NODE_ENV: 'production',
+          AUTO_GENERATE_KEYS: 'true',
+          RSA_PRIVATE_KEY_PATH: '',
+        };
+        const first = makeService(env).getPublicKeyInfo();
+        const second = makeService({
+          ...env,
+          AUTO_GENERATE_KEYS: 'false',
+        }).getPublicKeyInfo();
+        expect(second.keyId).toBe(first.keyId);
+        expect(
+          fs.statSync(path.join(workingDir, 'keys/private.pem')).mode & 0o777,
+        ).toBe(0o600);
+      });
+
+      it('keeps automatic generation enabled by default in development', () => {
+        expect(
+          makeService({
+            NODE_ENV: 'development',
+            RSA_PRIVATE_KEY_PATH: '',
+          }).getPublicKeyInfo().algorithm,
+        ).toBe('RSA-2048');
+      });
+
+      it('can disable development generation explicitly', () => {
+        expect(() =>
+          makeService({
+            NODE_ENV: 'development',
+            AUTO_GENERATE_KEYS: 'false',
+            RSA_PRIVATE_KEY_PATH: '',
+          }),
+        ).toThrow(/No server key configured/);
+      });
+
+      it.each(['FALSE', 'tru', '1'])(
+        'rejects invalid generation flags even with a configured key: %s',
+        (AUTO_GENERATE_KEYS) => {
+          expect(() => makeService({ AUTO_GENERATE_KEYS })).toThrow(
+            /AUTO_GENERATE_KEYS must be true or false/,
+          );
+        },
       );
     });
   });

@@ -21,7 +21,8 @@
     "test:debug": "node --inspect-brk --experimental-vm-modules -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:clients": "node --test test/gateway-client.test.mjs",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
-    "keygen": "node scripts/generate-keys.js"
+    "keygen": "node scripts/generate-keys.js",
+    "examples": "npm run build && node scripts/show-examples.js"
   },
   "dependencies": {
     "@nestjs/axios": "^12.0.1",

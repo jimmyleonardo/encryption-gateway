@@ -11,6 +11,7 @@ import { AxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 import {
   DecryptedPayload,
+  normalizeRequestBody,
   validateParameterObject,
 } from '../common/payload.js';
 import { ALLOWED_METHODS, TargetPolicy } from './target-policy.js';
@@ -117,15 +118,7 @@ export class ProxyService {
       Body !== '' &&
       !METHODS_WITHOUT_BODY.includes(httpMethod)
     ) {
-      if (typeof Body === 'string') {
-        try {
-          requestBody = JSON.parse(Body);
-        } catch {
-          requestBody = Body; // not JSON, forward as raw string
-        }
-      } else {
-        requestBody = Body; // already a JSON value (v2 style)
-      }
+      requestBody = normalizeRequestBody(Body);
     }
 
     let params: Record<string, unknown> | undefined;

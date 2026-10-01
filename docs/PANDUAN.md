@@ -22,6 +22,7 @@ Requests are always encrypted in both modes. The SDK reads the `Encrypted` envel
 ```bash
 cp .env.example .env
 # Edit .env: replace demo targets with your production upstream and select response mode.
+# Provide RSA_PRIVATE_KEY, or set AUTO_GENERATE_KEYS=true for the persistent Docker volume.
 docker compose up -d --build
 ```
 

@@ -1,5 +1,5 @@
 // clients/ios/GatewayClient.swift
-// iOS 13+ — Pure Swift, zero third-party dependencies (CryptoKit & Security).
+// iOS 15+ — Pure Swift, zero third-party dependencies (CryptoKit & Security).
 
 import CryptoKit
 import Foundation
