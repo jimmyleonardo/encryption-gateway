@@ -1,5 +1,5 @@
 # ── Build stage ──────────────────────────────────────────────────────────
-FROM node:24-alpine AS build
+FROM node:24.22.1-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -10,7 +10,7 @@ COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # ── Runtime stage ────────────────────────────────────────────────────────
-FROM node:24-alpine
+FROM node:24.22.1-alpine
 ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
