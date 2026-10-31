@@ -17,7 +17,7 @@ function parseTrustProxy(value: string): boolean | number | string {
  * whose packaging breaks the Vercel NestJS build.
  */
 function securityHeaders(
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction,
 ): void {
@@ -28,12 +28,19 @@ function securityHeaders(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=()',
   );
-  if (req.secure) {
-    res.setHeader(
-      'Strict-Transport-Security',
-      'max-age=31536000; includeSubDomains',
-    );
-  }
+  // The gateway only serves JSON, so nothing needs to load in a document.
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'none'; frame-ancestors 'none'",
+  );
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  // Sent unconditionally: req.secure is false behind a proxy unless TRUST_PROXY
+  // is set, and browsers ignore this header on plain HTTP responses.
+  res.setHeader(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains',
+  );
   next();
 }
 
