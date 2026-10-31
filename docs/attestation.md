@@ -57,9 +57,11 @@ ATTESTATION_PACKAGE_NAME=com.yourcompany.yourapp
 ATTESTATION_SIGNING_CERT_SHA256=A1:B2:C3:...        # colons optional
 ```
 
-Both must be set together. Set neither and the module stays inert. Colons and case
-are normalised, and several certificates may be comma-separated — useful while
-rotating a signing key, or to accept both a debug and a release build.
+Both must be set together. Set neither and the module stays inert. If only one is
+present, the gateway logs an error and keeps the module disabled instead of
+failing startup. Colons and case are normalised, and several certificates may be
+comma-separated — useful while rotating a signing key, or to accept both a debug
+and a release build.
 
 Only **one package name** is verified per deployment. Serving several apps from one
 gateway would need a change in `src/attestation/attestation.service.ts`.

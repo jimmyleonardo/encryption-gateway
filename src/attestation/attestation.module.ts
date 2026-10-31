@@ -126,6 +126,30 @@ export function policyFromConfig(config: ConfigService): AttestationPolicy {
   };
 }
 
+/**
+ * The attestation module is optional. A half-finished configuration should
+ * leave it disabled with a clear error, not take the whole gateway down.
+ */
+export function safePolicyFromConfig(config: ConfigService): AttestationPolicy {
+  try {
+    return policyFromConfig(config);
+  } catch (err) {
+    Logger.error(
+      `Attestation disabled: ${(err as Error).message}`,
+      'AttestationModule',
+    );
+    return {
+      configured: false,
+      trustedRootPublicKeys: [],
+      packageName: '',
+      signingCertDigests: new Set(),
+      minSecurityLevel: SecurityLevel.trustedEnvironment,
+      requireVerifiedBoot: true,
+      revokedSerials: new Set(),
+    };
+  }
+}
+
 export function devicePolicyFromConfig(config: ConfigService): DevicePolicy {
   const explicit =
     config.get<string>('ATTESTATION_DEVICE_POLICY') ??
@@ -173,6 +197,18 @@ export function kvStoreFromConfig(config: ConfigService): KvStore {
   return new MemoryKvStore();
 }
 
+export function safeKvStoreFromConfig(config: ConfigService): KvStore {
+  try {
+    return kvStoreFromConfig(config);
+  } catch (err) {
+    Logger.error(
+      `Attestation state falling back to memory: ${(err as Error).message}`,
+      'AttestationModule',
+    );
+    return new MemoryKvStore();
+  }
+}
+
 @Module({
   controllers: [AttestationController],
   providers: [
@@ -182,12 +218,12 @@ export function kvStoreFromConfig(config: ConfigService): KvStore {
     DeviceSignatureGuard,
     {
       provide: KV_STORE,
-      useFactory: kvStoreFromConfig,
+      useFactory: safeKvStoreFromConfig,
       inject: [ConfigService],
     },
     {
       provide: ATTESTATION_POLICY,
-      useFactory: policyFromConfig,
+      useFactory: safePolicyFromConfig,
       inject: [ConfigService],
     },
     {

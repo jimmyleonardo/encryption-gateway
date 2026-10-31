@@ -3,6 +3,8 @@ import {
   devicePolicyFromConfig,
   kvStoreFromConfig,
   policyFromConfig,
+  safeKvStoreFromConfig,
+  safePolicyFromConfig,
 } from './attestation.module.js';
 import { MemoryKvStore, UpstashKvStore } from './kv.store.js';
 
@@ -154,5 +156,23 @@ describe('kvStoreFromConfig', () => {
         configOf({ ATTESTATION_KV_REST_URL: 'https://kv.example.com' }),
       ),
     ).toThrow(/must both be set/);
+  });
+});
+
+describe('safe configuration', () => {
+  it('disables attestation instead of crashing on a half-configured identity', () => {
+    const policy = safePolicyFromConfig(
+      configOf({ ATTESTATION_PACKAGE_NAME: 'com.example.app' }),
+    );
+    expect(policy.configured).toBe(false);
+    expect(policy.trustedRootPublicKeys).toEqual([]);
+  });
+
+  it('falls back to memory instead of crashing on a half-configured KV', () => {
+    expect(
+      safeKvStoreFromConfig(
+        configOf({ ATTESTATION_KV_REST_URL: 'https://kv.example.com' }),
+      ),
+    ).toBeInstanceOf(MemoryKvStore);
   });
 });
