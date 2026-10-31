@@ -37,6 +37,7 @@ The SDK returns backend status, headers, and data in both modes. Authentication 
 ## Contents
 
 - [Run locally](#run-locally)
+- [Usage examples](#usage-examples)
 - [Integrate your backend](#integrate-your-backend)
 - [Integrate your client](#integrate-your-client)
 - [Optional device attestation](#optional-device-attestation)
@@ -100,6 +101,136 @@ node scripts/show-examples.js --json
 ```
 
 These examples use fictional upstream fixtures and a temporary key held only in memory. The local mock server used by `test-client.js` returns a simple profile; it does not implement the five fictional business APIs.
+
+## Usage examples
+
+The hosted demo forwards only to JSONPlaceholder and keeps `ENCRYPT_RESPONSE=true`. It fetches the public key at runtime for convenience; production clients should bundle the key instead.
+
+```bash
+GATEWAY_URL=https://encryption-gateway.vercel.app \
+ACCESS_POINT=https://jsonplaceholder.typicode.com/posts \
+node test-client.js
+```
+
+### Encrypted response (default)
+
+With `ENCRYPT_RESPONSE=true`, the request and the response are both AES-256-GCM ciphertext on the wire:
+
+```json
+{
+  "KeyId": "<keyId from /public-key>",
+  "EncryptedKey": "<base64 RSA-OAEP-SHA256 ciphertext>",
+  "IV": "<base64 12-byte IV>",
+  "Payload": "<base64 ciphertext + 16-byte GCM tag>"
+}
+```
+
+```json
+{
+  "Encrypted": true,
+  "IV": "<fresh base64 12-byte IV>",
+  "Payload": "<base64 ciphertext + 16-byte GCM tag>"
+}
+```
+
+The SDK decrypts the response with the request's AES key. `test-client.js` prints the normalized result (headers abridged):
+
+```json
+{
+  "StatusCode": 201,
+  "Headers": {
+    "content-type": "application/json; charset=utf-8"
+  },
+  "Data": {
+    "userId": 456,
+    "id": 101
+  }
+}
+```
+
+The client always requires this mode unless it explicitly opts out:
+
+```javascript
+const gateway = new GatewayClient(gatewayUrl, publicPem, keyId, {
+  requireEncryptedResponse: true, // default
+});
+```
+
+### Plain response over HTTPS
+
+Set `ENCRYPT_RESPONSE=false` on the gateway, restart it, and let the client accept plain responses:
+
+```bash
+# .env
+ENCRYPT_RESPONSE=false
+```
+
+```bash
+REQUIRE_ENCRYPTED_RESPONSE=false node test-client.js
+```
+
+Requests are still encrypted. Only the response envelope changes (headers abridged):
+
+```json
+{
+  "Encrypted": false,
+  "StatusCode": 200,
+  "Headers": {
+    "content-type": "application/json"
+  },
+  "Data": {
+    "success": true,
+    "profile": {
+      "id": 123,
+      "name": "Budi Santoso",
+      "email": "budi@example.com"
+    }
+  }
+}
+```
+
+The SDK returns the same `StatusCode` / `Headers` / `Data` shape, without decryption:
+
+```javascript
+const gateway = new GatewayClient(gatewayUrl, publicPem, keyId, {
+  requireEncryptedResponse: false,
+});
+
+const result = await gateway.send({
+  method: 'POST',
+  accessPoint: 'https://api.example.com/api/login',
+  body: { email: 'budi@example.com', password: 'demo-password-only' },
+});
+```
+
+`ENCRYPT_RESPONSE` is server-side; a client cannot request plain responses from an encrypted gateway. Plain mode removes application-layer encryption only. HTTPS is still required, and a proxy that intercepts TLS can read the response.
+
+### Plaintext requests are rejected
+
+Only the outer envelope may be unencrypted JSON. Sending the decrypted payload directly to the gateway fails validation:
+
+```bash
+curl -sS -X POST https://encryption-gateway.vercel.app/api/gateway \
+  -H 'Content-Type: application/json' \
+  -d '{"Method":"POST","AccessPoint":"https://jsonplaceholder.typicode.com/posts","Body":{"userId":456}}'
+```
+
+```json
+{
+  "message": [
+    "property Method should not exist",
+    "property AccessPoint should not exist",
+    "property Body should not exist",
+    "EncryptedKey must be base64 encoded",
+    "IV must be base64 encoded",
+    "Payload must be base64 encoded"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+The five detailed examples in [Request and response examples](#request-and-response-examples) show complete envelopes for both response modes.
 
 ## Integrate your backend
 
@@ -497,6 +628,25 @@ Vercel supports [NestJS with zero configuration](https://vercel.com/docs/framewo
 | `ATTESTATION_KV_REST_URL` / `ATTESTATION_KV_REST_TOKEN` | Required for attestation on Vercel or any multi-instance host |
 
 Use a stable environment secret for the RSA key: ephemeral filesystems and recycled instances cannot preserve generated keys. Keep production private keys scoped to production. If you need preview deployments, give them a separate key and test upstream; production keys must not be exposed to untrusted preview code. Rate limits count separately per instance. Hosting request/response and execution limits still apply. See [deployment details](docs/deployment.md).
+
+### Security headers
+
+Every response, including `/health`, `/public-key`, and gateway errors, carries a small set of API security headers:
+
+| Header | Value | Purpose |
+| --- | --- | --- |
+| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'` | The gateway returns JSON only; nothing should load or frame it |
+| `Cross-Origin-Opener-Policy` | `same-origin` | Isolates the response from cross-origin window references |
+| `Cross-Origin-Resource-Policy` | `same-origin` | Prevents other origins from embedding gateway responses as no-CORS resources |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Tells browsers to use HTTPS for this host for one year |
+| `X-Content-Type-Options` | `nosniff` | Prevents content-type sniffing |
+| `X-Frame-Options` | `DENY` | Blocks framing in older browsers |
+| `Referrer-Policy` | `no-referrer` | Does not leak gateway URLs to third parties |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Disables browser features the API does not use |
+
+HSTS is sent on every response, not only when Express detects HTTPS, because `req.secure` is false behind a proxy unless `TRUST_PROXY` is configured. Browsers ignore `Strict-Transport-Security` received over plain HTTP, so local development is unaffected; terminate TLS at your proxy or hosting platform in production. Cross-origin browser access is controlled separately by `CORS_ORIGINS`.
+
+These headers are applied by a small middleware in `src/main.ts` instead of `helmet`, whose packaging breaks the Vercel NestJS build. Gateway responses also use `Cache-Control: no-store`.
 
 ## Request and response examples
 
