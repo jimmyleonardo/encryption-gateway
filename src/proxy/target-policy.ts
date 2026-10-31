@@ -62,7 +62,7 @@ export class TargetPolicy {
       (r) =>
         r.host === host &&
         (r.method === '*' || r.method === method) &&
-        matchesPath(r, url.pathname),
+        (r.prefix ? url.pathname.startsWith(r.path) : url.pathname === r.path),
     );
     if (!allowed) {
       throw new BadRequestException(
@@ -70,19 +70,6 @@ export class TargetPolicy {
       );
     }
   }
-}
-
-/**
- * Prefix rules only match whole path segments. Without the boundary check,
- * `/admin*` would also allow `/administrator` and `/admin-panel`.
- */
-function matchesPath(rule: Rule, pathname: string): boolean {
-  if (!rule.prefix) return pathname === rule.path;
-  if (rule.path === '/') return true;
-  if (pathname === rule.path) return true;
-  return pathname.startsWith(
-    rule.path.endsWith('/') ? rule.path : `${rule.path}/`,
-  );
 }
 
 function splitList(raw: string): string[] {

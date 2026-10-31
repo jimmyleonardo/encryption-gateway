@@ -1,4 +1,4 @@
-import { Controller, Get, Header } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { SkipRateLimit } from '../common/rate-limit.guard.js';
 import { EncryptionService } from './encryption.service.js';
 import type { PublicKeyInfo } from './encryption.service.js';
@@ -15,7 +15,6 @@ export class PublicKeyController {
 
   @Get()
   @SkipRateLimit()
-  @Header('Cache-Control', 'public, max-age=300')
   get(): PublicKeyInfo {
     return this.encryptionService.getPublicKeyInfo();
   }

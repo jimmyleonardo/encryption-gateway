@@ -3,11 +3,10 @@ import { HttpModule } from '@nestjs/axios';
 import { EncryptionModule } from '../encryption/encryption.module.js';
 import { ProxyController } from './proxy.controller.js';
 import { ProxyService } from './proxy.service.js';
-import { ReplayProtectionService } from '../common/replay-protection.service.js';
 
 @Module({
   imports: [HttpModule, EncryptionModule],
   controllers: [ProxyController],
-  providers: [ProxyService, ReplayProtectionService],
+  providers: [ProxyService],
 })
 export class ProxyModule {}

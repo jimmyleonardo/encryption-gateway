@@ -16,7 +16,7 @@ Plaintext payload structure before client-side encryption:
 }
 ```
 
-`AccessPoint` is required. `Method` defaults to `GET`. `Header`, `Body`, and `Parameter` are optional. `Nonce` and `Timestamp` are optional by default; they become mandatory when the gateway runs with `REQUIRE_REQUEST_NONCE=true`. In that mode, send a unique nonce and a fresh ISO-8601 or epoch timestamp inside the encrypted payload, or the gateway returns HTTP 400. Identical requests are otherwise forwarded as-is.
+`AccessPoint` is required. `Method` defaults to `GET`. `Header`, `Body`, and `Parameter` are optional. No `Timestamp` or `Nonce` is required; legacy fields are ignored. Identical requests can be safely forwarded to the upstream backend as long as they pass validation and rate limits.
 
 The payload transmitted across the wire by the SDK:
 
@@ -80,13 +80,9 @@ Gateway errors return standard non-200 HTTP statuses with plain JSON bodies in b
 |---|---|
 | 400 | Invalid request format, decryption failure, invalid headers, or rejected target/method |
 | 400 + `UNKNOWN_KEY_ID` | Key ID unknown to gateway |
-| 400 + `REQUEST_REPLAYED` | Nonce was already used while replay protection is enabled |
-| 400 + `REQUEST_EXPIRED` | Timestamp is outside `REQUEST_MAX_SKEW_MS` |
-| 400 + `REQUEST_NONCE_INVALID` / `REQUEST_TIMESTAMP_INVALID` | Missing or malformed replay fields |
 | 413 | Incoming JSON payload exceeds `MAX_BODY_SIZE` |
 | 429 | Gateway rate limit exceeded |
 | 502 | Backend unreachable or response exceeds maximum size |
-| 503 | Attestation endpoint called without `ATTESTATION_PACKAGE_NAME` / `ATTESTATION_SIGNING_CERT_SHA256` |
 | 504 | Backend upstream timeout |
 
 ## Utility Endpoints

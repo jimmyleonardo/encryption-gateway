@@ -6,8 +6,6 @@ import {
 } from '../encryption/encryption.service.js';
 import { ProxyService } from './proxy.service.js';
 import { GatewayRequestDto } from '../common/dto/gateway-request.dto.js';
-import { strictBoolean } from '../common/config.js';
-import { ReplayProtectionService } from '../common/replay-protection.service.js';
 
 export interface PlainGatewayResponse {
   Encrypted: false;
@@ -23,10 +21,13 @@ export class ProxyController {
   constructor(
     private readonly encryptionService: EncryptionService,
     private readonly proxyService: ProxyService,
-    private readonly replayProtection: ReplayProtectionService,
     config: ConfigService,
   ) {
-    this.encryptResponse = strictBoolean(config, 'ENCRYPT_RESPONSE', true);
+    const mode = config.get<string>('ENCRYPT_RESPONSE') || 'true';
+    if (mode !== 'true' && mode !== 'false') {
+      throw new Error('ENCRYPT_RESPONSE must be true or false');
+    }
+    this.encryptResponse = mode === 'true';
   }
 
   /**
@@ -42,7 +43,6 @@ export class ProxyController {
     @Body() dto: GatewayRequestDto,
   ): Promise<GatewayResponse | PlainGatewayResponse> {
     const { payload, aesKey } = this.encryptionService.decrypt(dto);
-    this.replayProtection.assertFresh(payload);
 
     const upstream = await this.proxyService.forward(payload);
 

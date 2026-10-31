@@ -5,7 +5,6 @@ import { RateLimitGuard } from './common/rate-limit.guard.js';
 import { AppController } from './app.controller.js';
 import { ProxyModule } from './proxy/proxy.module.js';
 import { EncryptionModule } from './encryption/encryption.module.js';
-import { AttestationModule } from './attestation/attestation.module.js';
 
 @Module({
   imports: [
@@ -15,7 +14,6 @@ import { AttestationModule } from './attestation/attestation.module.js';
     }),
     EncryptionModule,
     ProxyModule,
-    AttestationModule,
   ],
   controllers: [AppController],
   // Rate limit per client IP. RSA decryption is CPU-heavy, so this

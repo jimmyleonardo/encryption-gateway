@@ -64,7 +64,7 @@ This section provides an honest threat model outlining what the Encryption Gatew
    - **Client-Side Key Extraction:** The gateway's *public key* is embedded in the client and is public by design. Anyone can extract it and craft valid encrypted requests. Authentication must remain enforced by backend authorization tokens.
 
 3. **Client app hardening:**
-   - Teams may add platform-specific runtime integrity checks and tamper resistance to their own apps. The optional attestation module verifies Android Key Attestation for `/v1/devices/*`, but it does not detect every rooted or instrumented device and does not replace client-side hardening.
+   - Teams may add platform-specific runtime integrity checks, device attestation, and tamper resistance to their own apps. These controls are outside this gateway: it does not verify device attestation or detect rooted, jailbroken, or instrumented clients.
 
 ### ProGuard / R8 Configuration
 
@@ -100,10 +100,10 @@ Only preserve model serialization annotations if your application deserializes g
 - Payload encryption is not a replacement for authentication or authorization. Anyone in possession of the public key can craft valid encrypted requests; backend services must always authenticate identity and verify permissions.
 - The gateway is designed specifically for JSON and text payloads. POST/PUT/PATCH/DELETE request bodies are forwarded; GET request bodies are omitted. Streaming responses, multipart file uploads, WebSockets, and arbitrary binary streaming are out of scope.
 - Hop-by-hop headers, `Host`, headers declared in `Connection`, and client-provided proxy forwarding headers are stripped. Upstream services must never trust identity headers without mutual server authentication.
-- Gateway rate limiting is in-memory and per process. IPv6 clients are grouped by /64 so a single host cannot rotate addresses inside its prefix. Behind several replicas or serverless instances each one counts separately, so it throttles abusive clients but is not a strict global quota.
+- Gateway rate limiting is in-memory and per process. Behind several replicas or serverless instances each one counts separately, so it throttles abusive clients but is not a strict global quota.
 - `TRUST_PROXY` changes which forwarded address Express treats as the client IP. Set it only to the actual trusted proxy hop count or subnet, and ensure that proxy overwrites client-supplied forwarding headers. A broad trust setting can let clients spoof rate-limit identity.
 - The route allowlist checks URL host and path before the HTTP client resolves DNS. Deploy with outbound network controls that prevent access to cloud metadata, loopback, link-local, and private networks unless those destinations are intentional upstreams. Host allowlisting alone does not pin DNS answers.
 - Upstream HTTP redirects are not followed. Restrict targets strictly to trusted backends; route whitelisting does not replace internal network segmentation.
-- Requests can be replayed by default. AES-GCM authenticates request contents, but the gateway does not keep request history unless `REQUIRE_REQUEST_NONCE=true`. When enabled, it rejects duplicate nonces and stale timestamps inside the configured window; the cache is per process, so multi-instance deployments should still use backend idempotency for money-moving operations.
-- The optional attestation module verifies Android Key Attestation and enforces the configured package name and signing certificate. It is disabled until `ATTESTATION_PACKAGE_NAME` and `ATTESTATION_SIGNING_CERT_SHA256` are set. Apple App Attest and client runtime protection are not implemented; application teams must add those controls if needed.
+- Requests can be replayed. AES-GCM authenticates request contents, but the gateway does not keep a nonce or request history. Protect non-idempotent operations with backend authentication, idempotency keys, or replay checks.
+- The gateway does not implement Android Key Attestation, Apple App Attest, or client runtime protection. Application teams must implement and verify those controls in their own systems if needed.
 - Encrypted responses cannot prevent inspection on compromised devices where the application memory is modified: client applications ultimately decrypt data into plaintext to render it.

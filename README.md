@@ -32,14 +32,13 @@ Choose one response mode on the server:
 | `ENCRYPT_RESPONSE=true` (default) | Encrypted | Encrypted | `requireEncryptedResponse=true` (default) |
 | `ENCRYPT_RESPONSE=false` | Encrypted | Plain JSON envelope over HTTPS | `requireEncryptedResponse=false` |
 
-The SDK returns backend status, headers, and data in both modes. Authentication and business rules stay in your backend. The core gateway needs no database or Redis; its RSA identity key must persist across restarts. The optional attestation module can use Upstash or Vercel KV when several instances must share device state.
+The SDK returns backend status, headers, and data in both modes. Authentication and business rules stay in your backend. The gateway needs no database or Redis; its RSA identity key must persist across restarts.
 
 ## Contents
 
 - [Run locally](#run-locally)
 - [Integrate your backend](#integrate-your-backend)
 - [Integrate your client](#integrate-your-client)
-- [Optional device attestation](#optional-device-attestation)
 - [Deploy to production](#deploy-to-production)
 - [Request and response examples](#request-and-response-examples)
 - [Errors and troubleshooting](#errors-and-troubleshooting)
@@ -330,26 +329,7 @@ Use `INSPECTOR=samseer` for Samseer (the default). The sample pins Alice 1.2.0 a
 
 **The outer gateway HTTP status is 200 for a successfully transported backend response, including backend errors.** Check `StatusCode` (Web) or `statusCode` (native SDKs) for the backend result. A backend 201, 401, 404, or 422 stays inside the envelope.
 
-Gateway failures use outer HTTP 400/413/429/502/503/504, and the SDK throws instead of returning a backend result. In plain response mode, initialize the SDK with `requireEncryptedResponse=false`. The same `send()` calls and result handling then work for both modes. `Set-Cookie` values inside the envelope are data; browser cookies are not set automatically.
-
-## Optional device attestation
-
-The gateway includes an Android Key Attestation module for apps that need to bind requests to a hardware-backed key. It is independent of `/api/gateway` and stays disabled until both app identity values are set:
-
-```env
-ATTESTATION_PACKAGE_NAME=com.yourcompany.yourapp
-ATTESTATION_SIGNING_CERT_SHA256=A1:B2:C3:...
-```
-
-With both values configured, the gateway exposes:
-
-- `POST /v1/challenges` — issues a single-use nonce (60-second TTL).
-- `POST /v1/devices/enroll` — verifies a hardware attestation chain and stores the device public key.
-- `POST /v1/devices/verify` — checks a signature from an enrolled device.
-
-If the two values are unset, `/v1/devices/*` returns `503 ATTESTATION_NOT_CONFIGURED`; the rest of the gateway is unaffected. The signing digest must come from the certificate the device actually reports. With Google Play App Signing, that is the Play Console app-signing certificate, not your upload key.
-
-Challenges and enrolments live in memory by default. On Vercel or any multi-instance host, set `ATTESTATION_KV_REST_URL` and `ATTESTATION_KV_REST_TOKEN` so every instance sees the same state. `ATTESTATION_ALLOW_SOFTWARE=true` exists for emulators and tests only and is rejected when `NODE_ENV=production`. iOS App Attest is not implemented. See [attestation](docs/attestation.md) for the full policy and endpoints.
+Gateway failures use outer HTTP 400/413/429/502/504, and the SDK throws instead of returning a backend result. In plain response mode, initialize the SDK with `requireEncryptedResponse=false`. The same `send()` calls and result handling then work for both modes. `Set-Cookie` values inside the envelope are data; browser cookies are not set automatically.
 
 ## Deploy to production
 
@@ -492,9 +472,6 @@ Vercel supports [NestJS with zero configuration](https://vercel.com/docs/framewo
 | `ENCRYPT_RESPONSE` | `true`, or `false` with explicitly permitted clients |
 | `TRUST_PROXY` | The trusted proxy configuration for your hosting topology |
 | `CORS_ORIGINS` | Your browser app origins, if applicable |
-| `REQUIRE_REQUEST_NONCE` | `true` if clients send replay-protection fields, otherwise `false` |
-| `ATTESTATION_PACKAGE_NAME` / `ATTESTATION_SIGNING_CERT_SHA256` | Optional Android app identity; leave empty to disable attestation |
-| `ATTESTATION_KV_REST_URL` / `ATTESTATION_KV_REST_TOKEN` | Required for attestation on Vercel or any multi-instance host |
 
 Use a stable environment secret for the RSA key: ephemeral filesystems and recycled instances cannot preserve generated keys. Keep production private keys scoped to production. If you need preview deployments, give them a separate key and test upstream; production keys must not be exposed to untrusted preview code. Rate limits count separately per instance. Hosting request/response and execution limits still apply. See [deployment details](docs/deployment.md).
 
@@ -1390,9 +1367,7 @@ DELETE bodies are forwarded. Partial business results remain intact: the backend
 | `UNKNOWN_KEY_ID` | Client key ID is not accepted | Keep the old key during migration, or update the client |
 | Gateway HTTP 413 | Outer JSON request exceeds the body limit | `MAX_BODY_SIZE`; encryption/base64 adds overhead |
 | Gateway HTTP 429 | Per-IP request limit exceeded | Respect `Retry-After`; verify `TRUST_PROXY` |
-| `REQUEST_REPLAYED` / `REQUEST_EXPIRED` | Replay protection rejected the nonce or timestamp | Send a fresh `Nonce` and current `Timestamp`, or disable `REQUIRE_REQUEST_NONCE` on both sides |
 | Gateway HTTP 502 | Backend unreachable or response exceeds size limit | Gateway connectivity, TLS, backend logs, `MAX_UPSTREAM_RESPONSE_BYTES` |
-| HTTP 503 `ATTESTATION_NOT_CONFIGURED` | Attestation endpoint called without an app identity | Set `ATTESTATION_PACKAGE_NAME` and `ATTESTATION_SIGNING_CERT_SHA256` |
 | Gateway HTTP 504 | Backend request timed out | Backend latency and `UPSTREAM_TIMEOUT_MS` |
 | HTTP 200 with `StatusCode: 401` or `422` | Backend authentication or validation failed | Inspect `Data`; this is a successfully transported business error |
 | `Encrypted response required` | Client requires encryption, server returned plain JSON | Enable server encryption or deliberately allow both formats on the client |
@@ -1425,26 +1400,18 @@ For planned key rotation:
 3. Release clients with the new public key and `KeyId`.
 4. Remove the old key after clients migrate. Compromised keys require revocation according to your security policy.
 
-Clients that send `KeyId` are matched to that key. Older clients that omit it are tried against every configured key, so they keep working during a rotation.
-
 | Setting | Default | Scope |
 | --- | --- | --- |
 | `MAX_BODY_SIZE` | `1mb` | Outer JSON request, including base64 overhead |
 | `MAX_UPSTREAM_RESPONSE_BYTES` | `5242880` (5 MiB) | Upstream response after decompression |
 | `UPSTREAM_TIMEOUT_MS` | `15000` | Backend request timeout |
 | `THROTTLE_LIMIT` / `THROTTLE_TTL_MS` | 60 requests / 60000 ms | Per client IP, per gateway process |
-| `THROTTLE_MAX_ENTRIES` | `10000` | Maximum in-memory IP counters; IPv6 clients are grouped by /64 |
-| `REQUIRE_REQUEST_NONCE` | `false` | Require a fresh `Nonce` and `Timestamp` in the encrypted payload |
-| `REQUEST_MAX_SKEW_MS` | `60000` | Allowed clock difference for replay timestamps |
+| `THROTTLE_MAX_ENTRIES` | `10000` | Maximum in-memory IP counters |
 | `AUTO_GENERATE_KEYS` | Disabled in production/tests; enabled otherwise | Missing-key creation; exact `true`/`false` overrides |
 
 Body nesting is limited to 32 levels, including legacy JSON strings. Header names are limited to 256 characters and values to 8192 characters in all supported header shapes. See [configuration](docs/configuration.md) for the full environment reference.
 
-### Request replay protection
-
-Replay protection is off by default. Set `REQUIRE_REQUEST_NONCE=true`, then have the client put a unique `Nonce` (16-128 visible ASCII characters) and a `Timestamp` (ISO-8601 or epoch seconds/milliseconds) inside the encrypted payload. The gateway rejects duplicate nonces and timestamps outside `REQUEST_MAX_SKEW_MS` with HTTP 400. The nonce cache is per process, so backend idempotency remains the final control for non-idempotent operations.
-
-Payload encryption complements HTTPS. Anyone with the public key can construct requests, so the backend must authenticate and authorize them. The gateway supports JSON/text APIs; streaming, arbitrary binary transport, multipart uploads, and WebSockets are outside its scope. Rate limiting is per process, and host allowlisting does not pin DNS answers. Deployment network controls and the full [security model](docs/security.md) describe these boundaries.
+Payload encryption complements HTTPS. Anyone with the public key can construct requests, so the backend must authenticate and authorize them. Replay prevention and idempotency belong in the backend. The gateway supports JSON/text APIs; streaming, arbitrary binary transport, multipart uploads, and WebSockets are outside its scope. Rate limiting is per process, and host allowlisting does not pin DNS answers. Deployment network controls and the full [security model](docs/security.md) describe these boundaries.
 
 ## Development and documentation
 
@@ -1457,7 +1424,7 @@ npm run test:e2e -- --runInBand
 npm run examples
 ```
 
-Unit tests cover crypto, payload limits, key-generation policy, route checks, replay protection, attestation policy, controllers, and rate limits. E2E tests use the real gateway and a local upstream in default, encrypted, and plain response modes; they need permission to bind local ports. Web SDK tests cover response normalization, encrypted-response requirements, and tampered ciphertext. Validate native SDKs in your Android/iOS/Flutter application projects before shipping.
+Unit tests cover crypto, payload limits, key-generation policy, route checks, controllers, and rate limits. E2E tests use the real gateway and a local upstream in default, encrypted, and plain response modes; they need permission to bind local ports. Web SDK tests cover response normalization, encrypted-response requirements, and tampered ciphertext. Validate native SDKs in your Android/iOS/Flutter application projects before shipping.
 
 | Topic | Guide |
 | --- | --- |
@@ -1465,7 +1432,6 @@ Unit tests cover crypto, payload limits, key-generation policy, route checks, re
 | HTTP API, envelopes, and errors | [API specification](docs/api.md) |
 | Docker, reverse proxy, and Vercel | [Deployment](docs/deployment.md) |
 | Environment variables and key management | [Configuration](docs/configuration.md) |
-| Android Key Attestation endpoints and policy | [Attestation](docs/attestation.md) |
 | Threat model and limitations | [Security](docs/security.md) |
 | Hosted demo and direct-versus-gateway comparison | [Live demo](docs/live-demo.md) |
 | Quick-start guide | [Tutorial](docs/tutorial.md) |

@@ -11,9 +11,6 @@ export interface DecryptedPayload {
   Body?: unknown;
   /** JSON string or an object, sent as the query string. */
   Parameter?: string | Record<string, unknown>;
-  /** Optional replay-protection fields, enforced when REQUIRE_REQUEST_NONCE=true. */
-  Nonce?: string;
-  Timestamp?: string | number;
 }
 
 /**
@@ -68,16 +65,6 @@ export function parsePayload(value: unknown): DecryptedPayload {
     validateParameters(p.Parameter as Record<string, unknown>, fail);
   }
   if (p.Body !== undefined) normalizeRequestBody(p.Body);
-  if (p.Nonce != null && typeof p.Nonce !== 'string') {
-    throw fail('Nonce must be a string');
-  }
-  if (
-    p.Timestamp != null &&
-    typeof p.Timestamp !== 'string' &&
-    typeof p.Timestamp !== 'number'
-  ) {
-    throw fail('Timestamp must be a string or number');
-  }
 
   return p as unknown as DecryptedPayload;
 }

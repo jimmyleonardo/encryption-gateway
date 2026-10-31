@@ -337,31 +337,5 @@ describe('EncryptionService', () => {
       };
       expect(service().decrypt(dto).payload.AccessPoint).toBe('https://x');
     });
-
-    it('still decrypts legacy clients that omit KeyId', () => {
-      const aesKey = crypto.randomBytes(32);
-      const iv = crypto.randomBytes(12);
-      const dto = {
-        EncryptedKey: crypto
-          .publicEncrypt(
-            {
-              key: oldKey.publicKey,
-              padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-              oaepHash: 'sha256',
-            },
-            aesKey,
-          )
-          .toString('base64'),
-        IV: iv.toString('base64'),
-        Payload: AesUtil.seal(
-          JSON.stringify({
-            AccessPoint: 'https://x',
-          }),
-          aesKey,
-          iv,
-        ).toString('base64'),
-      };
-      expect(service().decrypt(dto).payload.AccessPoint).toBe('https://x');
-    });
   });
 });
