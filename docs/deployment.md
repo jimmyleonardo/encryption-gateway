@@ -110,4 +110,5 @@ Notes for serverless hosting:
 - **Keep the key out of Preview deployments.** Scope it to Production and leave Vercel's Git Fork Protection on, so pull requests from forks never receive the secret. Preview deployments therefore run without the production key and cannot decrypt real client traffic.
 - **Rate limiting and replay nonces are per instance.** Counters and nonces live in memory, so each concurrent serverless instance enforces its own limit and nonce history. Use Vercel's firewall rate limiting or a shared store if you need a strict global limit. Backend idempotency is still required for non-idempotent operations.
 - **Attestation needs shared state on Vercel.** Set `ATTESTATION_KV_REST_URL` and `ATTESTATION_KV_REST_TOKEN` before enabling `ATTESTATION_PACKAGE_NAME`; otherwise a device enrolled by one instance is unknown to the next.
+- **Keep build tools installed.** Vercel builds with `NODE_ENV=production`, which normally skips `devDependencies`. The repository's `.npmrc` sets `include=dev` so the Nest CLI and TypeScript are available for `npm run build`.
 - Variables left empty in the dashboard are treated as unset and fall back to their defaults.
