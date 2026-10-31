@@ -94,6 +94,13 @@
       "^(\\.{1,2}/.*)\\.js$": "$1"
     }
   },
+  "overrides": {
+    "body-parser": "2.4.0",
+    "follow-redirects": "1.16.2",
+    "multer": "2.5.0",
+    "proxy-addr": "2.0.8",
+    "qs": "6.17.1"
+  },
   "engines": {
     "node": ">=24"
   }
