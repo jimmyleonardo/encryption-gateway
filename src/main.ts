@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module.js';
 
 /** "true" / "false" / hop count ("1") / Express preset or subnet list. */
@@ -9,6 +10,31 @@ function parseTrustProxy(value: string): boolean | number | string {
   if (value === 'false') return false;
   if (/^\d+$/.test(value)) return parseInt(value, 10);
   return value;
+}
+
+/**
+ * Small set of API security headers. Kept local instead of pulling in helmet,
+ * whose packaging breaks the Vercel NestJS build.
+ */
+function securityHeaders(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=()',
+  );
+  if (req.secure) {
+    res.setHeader(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains',
+    );
+  }
+  next();
 }
 
 /** Reject a PORT that body-parser or the OS would silently reinterpret. */
@@ -32,6 +58,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.enableShutdownHooks();
   app.disable('x-powered-by');
+  app.use(securityHeaders);
 
   // Behind a load balancer / reverse proxy every request arrives from the
   // proxy's IP, so the per-IP rate limit would be shared by ALL clients.
