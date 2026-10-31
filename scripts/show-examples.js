@@ -359,6 +359,7 @@ try {
             return fixture.response;
           },
         },
+        { assertFresh: () => {} },
         config({ ENCRYPT_RESPONSE: mode }),
       );
       globalThis.fetch = async (url, options) => {

@@ -15,7 +15,7 @@ import {
   validateParameterObject,
 } from '../common/payload.js';
 import { ALLOWED_METHODS, TargetPolicy } from './target-policy.js';
-import { positiveInteger } from '../common/config.js';
+import { positiveInteger, strictBoolean } from '../common/config.js';
 
 export interface UpstreamResponse {
   status: number;
@@ -71,8 +71,11 @@ export class ProxyService {
       this.configService.get<string>('ALLOWED_TARGET_HOSTS'),
       this.configService.get<string>('ALLOWED_ROUTES'),
     );
-    this.allowHttp =
-      this.configService.get<string>('ALLOW_HTTP_UPSTREAM') === 'true';
+    this.allowHttp = strictBoolean(
+      this.configService,
+      'ALLOW_HTTP_UPSTREAM',
+      false,
+    );
     this.timeoutMs = positiveInteger(
       configService,
       'UPSTREAM_TIMEOUT_MS',
@@ -228,7 +231,9 @@ export class ProxyService {
         lower.startsWith('x-forwarded-') ||
         connectionHeaders.has(lower)
       ) {
-        this.logger.warn(`Dropping blocked header from client: ${name}`);
+        // Debug level: a client can send many blocked headers, and warning on
+        // every one of them turns into log spam during probing.
+        this.logger.debug(`Dropping blocked header from client: ${name}`);
         return;
       }
       headers[name] = text;

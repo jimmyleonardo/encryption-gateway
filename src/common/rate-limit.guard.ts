@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { positiveInteger } from './config.js';
+import { clientIpKey } from './client-ip.js';
 
 const SKIP_RATE_LIMIT = 'skipRateLimit';
 
@@ -54,7 +55,7 @@ export class RateLimitGuard implements CanActivate {
     const now = Date.now();
     this.sweep(now);
 
-    let key = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    let key = clientIpKey(req.ip ?? req.socket.remoteAddress);
     if (!this.hits.has(key) && this.hits.size >= this.maxEntries - 1) {
       // Keep attacker-controlled IP cardinality from growing this process
       // without bound. New addresses share one capped overflow bucket.

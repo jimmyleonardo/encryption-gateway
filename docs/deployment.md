@@ -108,5 +108,6 @@ Notes for serverless hosting:
 
 - **Always set `RSA_PRIVATE_KEY`.** The filesystem is read-only and instances are recycled, so an auto-generated key would change between cold starts and break every client.
 - **Keep the key out of Preview deployments.** Scope it to Production and leave Vercel's Git Fork Protection on, so pull requests from forks never receive the secret. Preview deployments therefore run without the production key and cannot decrypt real client traffic.
-- **Rate limiting is per instance.** Counters live in memory, so each concurrent serverless instance enforces `THROTTLE_LIMIT` on its own and the effective global limit is higher. Use Vercel's firewall rate limiting or a shared store if you need a strict global limit.
+- **Rate limiting and replay nonces are per instance.** Counters and nonces live in memory, so each concurrent serverless instance enforces its own limit and nonce history. Use Vercel's firewall rate limiting or a shared store if you need a strict global limit. Backend idempotency is still required for non-idempotent operations.
+- **Attestation needs shared state on Vercel.** Set `ATTESTATION_KV_REST_URL` and `ATTESTATION_KV_REST_TOKEN` before enabling `ATTESTATION_PACKAGE_NAME`; otherwise a device enrolled by one instance is unknown to the next.
 - Variables left empty in the dashboard are treated as unset and fall back to their defaults.

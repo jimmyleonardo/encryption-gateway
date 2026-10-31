@@ -71,6 +71,22 @@ describe('TargetPolicy', () => {
       expect(allowed(policy, method, url)).toBe(expected);
     });
 
+    it('requires a whole path segment for a wildcard prefix', () => {
+      const prefix = new TargetPolicy('', 'api.example.com/admin*');
+      expect(allowed(prefix, 'GET', 'https://api.example.com/admin')).toBe(
+        true,
+      );
+      expect(
+        allowed(prefix, 'GET', 'https://api.example.com/admin/users'),
+      ).toBe(true);
+      expect(
+        allowed(prefix, 'GET', 'https://api.example.com/administrator'),
+      ).toBe(false);
+      expect(
+        allowed(prefix, 'GET', 'https://api.example.com/admin-panel'),
+      ).toBe(false);
+    });
+
     it('is not fooled by dot segments', () => {
       // URL parsing resolves these to /admin before matching
       expect(

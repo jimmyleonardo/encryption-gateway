@@ -37,6 +37,10 @@ describe('Gateway (e2e)', () => {
       'ALLOWED_ROUTES',
       'ALLOW_HTTP_UPSTREAM',
       'ENCRYPT_RESPONSE',
+      'REQUIRE_REQUEST_NONCE',
+      'ATTESTATION_PACKAGE_NAME',
+      'ATTESTATION_SIGNING_CERT_SHA256',
+      'ATTESTATION_ALLOW_SOFTWARE',
     ];
     for (const k of keys) delete process.env[k];
     Object.assign(process.env, {
@@ -365,5 +369,38 @@ describe('Gateway (e2e)', () => {
 
     it('rejects a body that is not base64', () =>
       post({ EncryptedKey: '!!', IV: '!!', Payload: '!!' }).expect(400));
+  });
+
+  describe('Attestation endpoints', () => {
+    let app: INestApplication<App>;
+
+    beforeAll(async () => {
+      app = await startApp({ ALLOWED_ROUTES: `localhost:${port}/api/*` });
+    });
+    afterAll(() => app.close());
+
+    it('issues a single-use challenge', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/challenges')
+        .send({ purpose: 'enroll' })
+        .expect(200);
+      const body = res.body as { challengeId?: string; nonce?: string };
+      expect(body.challengeId).toBeDefined();
+      expect(Buffer.from(body.nonce ?? '', 'base64')).toHaveLength(32);
+    });
+
+    it('reports 503 instead of 404 when the app identity is unset', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/devices/enroll')
+        .send({
+          challengeId: 'missing',
+          deviceId: 'device-1',
+          certificateChain: ['a', 'b'],
+        })
+        .expect(503);
+      expect((res.body as { code?: string }).code).toBe(
+        'ATTESTATION_NOT_CONFIGURED',
+      );
+    });
   });
 });
