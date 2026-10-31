@@ -104,10 +104,12 @@ export class EncryptionService implements OnModuleInit {
     payload: DecryptedPayload;
     aesKey: Buffer;
   } {
-    const key = dto.KeyId
-      ? this.keys.find((k) => k.keyId === dto.KeyId)
-      : this.keys[0];
-    if (!key) {
+    // Without a KeyId, try every accepted key. Legacy clients embed the public
+    // key but do not send KeyId, so this keeps them working across a rotation.
+    const candidates = dto.KeyId
+      ? this.keys.filter((k) => k.keyId === dto.KeyId)
+      : this.keys;
+    if (candidates.length === 0) {
       throw new BadRequestException({
         statusCode: 400,
         error: 'Bad Request',
@@ -116,13 +118,17 @@ export class EncryptionService implements OnModuleInit {
       });
     }
 
-    let aesKey: Buffer;
-    try {
-      aesKey = RsaUtil.decryptOaep(
-        Buffer.from(dto.EncryptedKey, 'base64'),
-        key.privateKey,
-      );
-    } catch {
+    const ciphertext = Buffer.from(dto.EncryptedKey, 'base64');
+    let aesKey: Buffer | undefined;
+    for (const key of candidates) {
+      try {
+        aesKey = RsaUtil.decryptOaep(ciphertext, key.privateKey);
+        break;
+      } catch {
+        // Try the next accepted key before reporting a decryption failure.
+      }
+    }
+    if (!aesKey) {
       throw new BadRequestException(
         'Unable to decrypt EncryptedKey (wrong public key or not RSA-OAEP-SHA256)',
       );

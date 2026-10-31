@@ -11,14 +11,41 @@ function parseTrustProxy(value: string): boolean | number | string {
   return value;
 }
 
+/** Reject a PORT that body-parser or the OS would silently reinterpret. */
+function parsePort(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') return 3000;
+  const port = Number(value);
+  if (
+    !/^\d+$/.test(value) ||
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65535
+  ) {
+    throw new Error(
+      `PORT must be an integer between 1 and 65535 (got ${JSON.stringify(value)})`,
+    );
+  }
+  return port;
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.enableShutdownHooks();
+  app.disable('x-powered-by');
 
   // Behind a load balancer / reverse proxy every request arrives from the
   // proxy's IP, so the per-IP rate limit would be shared by ALL clients.
   // TRUST_PROXY makes Express read the real client IP from X-Forwarded-For.
   if (process.env.TRUST_PROXY) {
+    if (
+      process.env.TRUST_PROXY === 'true' &&
+      process.env.NODE_ENV === 'production'
+    ) {
+      Logger.warn(
+        'TRUST_PROXY=true trusts every forwarded address. Set the exact hop count or proxy subnet instead.',
+        'Bootstrap',
+      );
+    }
     app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
   }
 
@@ -42,7 +69,7 @@ async function bootstrap() {
     app.enableCors({ origin: corsOrigins, methods: ['POST', 'GET'] });
   }
 
-  const port = process.env.PORT || 3000;
+  const port = parsePort(process.env.PORT);
   await app.listen(port);
   Logger.log(
     `🚀 Encryption gateway running on http://localhost:${port}`,
